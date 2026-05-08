@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -36,10 +35,12 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
   ScanRecord? _stored;
   Uint8List? _preprocessedJpeg;
   String _inferNote = '';
+  late Future<Uint8List> _sourceBytesFuture;
 
   @override
   void initState() {
     super.initState();
+    _sourceBytesFuture = widget.repository.readImageBytes(widget.imagePath);
     if (widget.alreadyStored) {
       _inferNote = 'ライブラリの既存イメージ';
     } else {
@@ -58,6 +59,8 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
       setState(() {
         _stored = saved;
         _busy = false;
+        _sourceBytesFuture =
+            widget.repository.readImageBytes(saved.sourcePath);
       });
       widget.onPersisted();
       if (!mounted) return;
@@ -80,7 +83,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
       _preprocessedJpeg = null;
     });
     try {
-      final raw = await File(widget.imagePath).readAsBytes();
+      final raw = await widget.repository.readImageBytes(widget.imagePath);
       final resized = preprocessRaster(raw, longEdgePx);
       final jpg = Uint8List.fromList(img.encodeJpg(resized, quality: 90));
       if (!mounted) return;
@@ -105,7 +108,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
     try {
       await widget.inpaintingEngine.warmup();
       if (!mounted) return;
-      final raw = await File(widget.imagePath).readAsBytes();
+      final raw = await widget.repository.readImageBytes(widget.imagePath);
       if (!mounted) return;
       final resized = preprocessRaster(raw, longEdgePx);
       final w = resized.width;
@@ -143,7 +146,6 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final fileImage = Image.file(File(widget.imagePath), fit: BoxFit.contain);
     final extra = (_preprocessedJpeg != null)
         ? Padding(
             padding: const EdgeInsets.only(top: 16),
@@ -168,10 +170,32 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                 style: Theme.of(context).textTheme.labelSmall,
               ),
             const SizedBox(height: 12),
-            InteractiveViewer(
-              minScale: 0.5,
-              maxScale: 4,
-              child: fileImage,
+            FutureBuilder<Uint8List>(
+              future: _sourceBytesFuture,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Text('読み込みエラー: ${snapshot.error}');
+                }
+                if (!snapshot.hasData) {
+                  if (_busy) {
+                    return const SizedBox(height: 200);
+                  }
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(48),
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+                return InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 4,
+                  child: Image.memory(
+                    snapshot.data!,
+                    fit: BoxFit.contain,
+                  ),
+                );
+              },
             ),
             extra,
             const SizedBox(height: 16),
@@ -195,10 +219,12 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
               onPressed: _busy ? null : () => Navigator.of(context).pop(),
               child: Text(widget.alreadyStored ? '戻る' : '破棄して戻る'),
             ),
-            if (_busy) const Center(child: Padding(
-              padding: EdgeInsets.all(24),
-              child: CircularProgressIndicator(),
-            )),
+            if (_busy)
+              const Center(
+                  child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(),
+              )),
           ],
         ),
       ),

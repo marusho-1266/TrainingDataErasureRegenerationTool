@@ -1,0 +1,4 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Profile merges with main only. Development network access for Flutter tooling
+         stays in src/debug/AndroidManifest.xml (debug builds). -->
+</manifest>

@@ -15,8 +15,7 @@ void main() {
 
     test('preprocessRaster resizes jpeg bytes', () {
       final raster = img.Image(width: 1024, height: 600, numChannels: 4);
-      final bytes =
-          Uint8List.fromList(img.encodeJpg(raster, quality: 90));
+      final bytes = Uint8List.fromList(img.encodeJpg(raster, quality: 90));
       final out = preprocessRaster(bytes, 512);
       final long = out.width > out.height ? out.width : out.height;
       expect(long, lessThanOrEqualTo(512));

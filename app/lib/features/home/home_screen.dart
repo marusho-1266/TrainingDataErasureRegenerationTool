@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 
 import 'package:training_data_erasure/data/scan_repository.dart';
 import 'package:training_data_erasure/features/scan/document_scan_coordinator.dart';
@@ -25,11 +24,26 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final DocumentScanCoordinator _scanner = DocumentScanCoordinator();
   List<ScanRecord> _recent = [];
+  final Map<String, bool> _canOpenByPath = {};
 
   Future<void> _reload() async {
     final rows = await widget.repository.listRecent();
+    final openChecks = await Future.wait(
+      rows.map(
+        (r) async => MapEntry(
+          r.sourcePath,
+          await widget.repository.canOpen(r.sourcePath),
+        ),
+      ),
+    );
+    final canOpenByPath = Map<String, bool>.fromEntries(openChecks);
     if (!mounted) return;
-    setState(() => _recent = rows);
+    setState(() {
+      _recent = rows;
+      _canOpenByPath
+        ..clear()
+        ..addAll(canOpenByPath);
+    });
   }
 
   @override
@@ -41,13 +55,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _startScan() async {
     try {
       final result = await _scanner.scanOnce();
-      final path = result.images.isNotEmpty
-          ? result.images.first
-          : null;
+      final images = result.images;
+      final path =
+          (images != null && images.isNotEmpty) ? images.first : null;
       if (path == null || !mounted) return;
-      if (!File(path).existsSync()) {
-        throw DocumentScanException('画像パスへアクセスできません: $path');
+      if (!await widget.repository.canOpen(path)) {
+        throw DocumentScanException(
+          '画像を開けません: ${p.basename(path)}',
+        );
       }
+      if (!mounted) return;
       await Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
           builder: (ctx) => ScanPreviewScreen(
@@ -96,7 +113,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (ctx, i) {
                         final r = _recent[i];
-                        final file = File(r.sourcePath);
+                        final label =
+                            widget.repository.listLabelForPath(r.sourcePath);
                         return ListTile(
                           leading: const Icon(Icons.image_outlined),
                           title: Text(
@@ -105,11 +123,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           subtitle: Text(
-                            r.sourcePath,
+                            label,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          onTap: file.existsSync()
+                          onTap: (_canOpenByPath[r.sourcePath] == true)
                               ? () {
                                   Navigator.of(context).push<void>(
                                     MaterialPageRoute<void>(

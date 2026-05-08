@@ -44,7 +44,8 @@ class AppDatabase {
       dbPath = p.join(dir.path, _dbName);
     } catch (e, st) {
       Error.throwWithStackTrace(
-        StateError('AppDatabase: path resolution failed before openDatabase: $e'),
+        StateError(
+            'AppDatabase: path resolution failed before openDatabase: $e'),
         st,
       );
     }

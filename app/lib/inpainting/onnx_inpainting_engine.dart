@@ -8,7 +8,6 @@ import 'package:training_data_erasure/inpainting/inpainting_engine.dart';
 
 const _assetOnnx = 'assets/models/inpainting.onnx';
 
-
 /// Loads bundled `inpainting.onnx` when present. Tensor wiring is deferred until §4.1 freezes I/O shapes.
 ///
 /// Pub package **`onnxruntime`** (upstream repo name is onnxruntime_flutter).
