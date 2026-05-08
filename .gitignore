@@ -1,1 +1,10 @@
 docs/ignore/
+
+# Flutter (`app/` after `flutter create`)
+app/.dart_tool/
+app/build/
+**/android/local.properties
+**/android/.gradle/
+**/ios/Pods/
+**/ios/**/*.xcworkspace/xcuserdata/
+memo.md
